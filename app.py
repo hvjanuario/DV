@@ -1,63 +1,268 @@
-import dash
-import dash_core_components as dcc
+import plotly.graph_objs as go
 import dash_html_components as html
+import dash_core_components as dcc
+import dash
 import pandas as pd
 import numpy as np
-
-from dash.dependencies import Input, Output
-from plotly import graph_objs as go
-from plotly.graph_objs import *
-from datetime import datetime as dt
+from dash.dependencies import Input, Output, State
+from plotly.subplots import make_subplots
+from sklearn import preprocessing
 
 
-app = dash.Dash(
-    __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}]
+df_football = pd.read_csv('DATABASE.csv')
+CountryContinent = pd.read_csv("CountryContinent.csv", sep = ';')
+partial = df_football[(df_football['Year']==2000)]
+
+df_football['Position_B'] = df_football['Position'].replace(to_replace={'Right Winger' : 'Winger',
+                                                                    'Central Midfield' : 'Midfield',
+                                                                    'Attacking Midfield' : 'Midfield',
+                                                                    'Centre-Back' : 'Defender',
+                                                                    'Left Midfield' : 'Midfield',
+                                                                    'Right-Back' : 'Side Back',
+                                                                    'Centre-Forward' : 'Forward',
+                                                                    'Left-Back' : 'Side Back',
+                                                                    'Defensive Midfield' : 'Midfield',
+                                                                    'Second Striker' : 'Forward',
+                                                                    'Goalkeeper' : 'Goalkeeper',
+                                                                    'Right Midfield' : 'Midfield',
+                                                                    'Left Winger' : 'Winger',
+                                                                    'Forward' : 'Forward',
+                                                                    'Sweeper' : 'Defender',
+                                                                    'Defender' : 'Defender',
+                                                                    'Midfielder' : 'Midfield'})
+
+
+Country = pd.DataFrame(df_football['Country_to'].append(df_football['Country_from']), columns = ["Country"]).drop_duplicates()
+transfers = df_football.merge(CountryContinent, how = 'left', left_on = 'Country_to', right_on = 'Country')
+transfers.drop(columns = ['Country'], inplace = True)
+transfers.head()
+transfTeamSales = transfers.groupby(['Team_from','Country_from']).agg(EarnedMoney=('Transfer_fee', 'sum'), NumSales=('Transfer_fee', 'size')).reset_index()
+transfTeamPurchase = transfers.groupby(['Team_to','Country_to']).agg(SpentMoney=('Transfer_fee', 'sum'), NumSignings=('Transfer_fee', 'size')).reset_index()
+TransfTeam = transfTeamSales.merge(transfTeamPurchase, left_on = ['Country_from', 'Team_from'], right_on = ['Country_to', 'Team_to'], how = 'outer' )
+TransfTeam.loc[TransfTeam['Team_from'].isna(), 'Team_from'] = TransfTeam['Team_to']
+TransfTeam.loc[TransfTeam['Country_from'].isna(), 'Country_from'] = TransfTeam['Country_to']
+TransfTeam.drop(columns = ['Team_to', 'Country_to'], inplace = True)
+TransfTeam.fillna(0, inplace = True)
+TransfTeam.rename(columns = {'Team_from' : 'Team', 'Country_from' : 'Country'}, inplace = True)
+TransfTeam = TransfTeam.sort_values(['Country'])
+Country_names = TransfTeam['Country'].unique()
+Country_data = {Country:TransfTeam.query("Country == '%s'" %Country)
+                              for Country in Country_names}
+
+
+data=[go.Choropleth(
+    locationmode='country names',
+    locations=partial.loc[partial['Country_from'] == i]['Country_from'].unique(),
+    z=[partial.loc[partial['Country_from'] == i]['Transfer_fee'].sum()],
+    text=[partial.loc[partial['Country_from'] == i]['Name'].to_string()],
+    colorscale='Blues',
+    colorbar_title='Football',
+) for i in partial['Country_from'].unique()]
+
+layout_fig = dict(geo=dict(
+        showframe=False,
+        showcoastlines=False,
+        projection_type='equirectangular'
+    ),
+        height=600,
+        title=dict(text='Football'),
+        )
+
+fig = go.Figure(data=data, layout=layout_fig)
+
+#FIRST PLOT GUSTAVO
+fig2 = go.Figure()
+
+for Country_names, Country in Country_data.items():
+    fig2 = go.Figure(data=fig2.add_trace(go.Scatter(
+        type='scatter',
+        x=Country['EarnedMoney'],
+        y=Country['SpentMoney'],
+        name=Country_names,
+        text=Country['Team'],
+        hovertemplate=
+        '<b>%{text}</b>' +
+        '<br><b>Spending</b>: €%{y}' +
+        '<br><b>Earnings</b>: €%{x}' +
+        '<br><b>Sales</b>: %{marker.size:}',
+        mode='markers',
+        marker=dict(size=Country['NumSignings'],
+                    sizeref=2)
+    )))
+
+fig2.update_layout(dict(title='Total Transfers Per Team 2000 - 2019',
+                       xaxis=dict(title='Total Recived by Sales'),
+                       yaxis=dict(title='Total Invested in Hiring')))
+
+
+#SECOND PLOT GUSTAVO
+transfers = transfers.sort_values(['Age'])
+Age_yrs = transfers['Age'].unique()
+Age_data = {Age :transfers.query("Age == '%s'" %Age)
+                              for Age in Age_yrs}
+
+fig3 = go.Figure()
+
+for Age_yrs, Age in Age_data.items():
+    fig3 = go.Figure(data = fig3.add_trace(go.Scatter(
+            type='scatter',
+            x=Age['Transfer_fee'],
+            y=Age['Position_B'],
+            name=str(Age_yrs),
+            text=Age['Name'],
+            hovertemplate=
+            '<b>%{text}</b>' +
+            '<br><b>Spending</b>: €%{y}' +
+            '<br><b>Earnings</b>: €%{x}' +
+            '<br><b>Sales</b>: %{marker.size:}',
+            mode='markers',
+            # marker = dict(size = Position['NumSignings'],
+            #              sizeref = 2)
+            )))
+
+fig3.update_layout(dict(title='Total Transfers Per Team 2000 - 2019',
+                       xaxis=dict(title='Total Recived by Sales'),
+                       yaxis=dict(title='Total Invested in Hiring')))
+
+#Third plot of Gustavo
+transfSeasonSales = transfers.groupby(['Country_to','Team_to','Season']).agg(MoneySpent=('Transfer_fee', 'sum'), NumHires=('Transfer_fee', 'size')).reset_index()
+transfSeasonSales.rename(columns = {'Team_to' : 'Team', 'Country_to' : 'Country'}, inplace = True)
+transfSeasonSales = transfSeasonSales.sort_values(['Season', 'MoneySpent'])
+
+MinSeasonSale = transfers.sort_values(['Season','Transfer_fee'])
+MinSeasonSale.drop_duplicates(subset=['Season'], keep='first', inplace=True)
+MinSeasonSale['Age']=MinSeasonSale['Age'].apply(str)
+MaxSeasonSale = transfers.sort_values(['Season','Transfer_fee'])
+MaxSeasonSale.drop_duplicates(subset=['Season'], keep='last', inplace=True)
+MaxSeasonSale['Age']=MaxSeasonSale['Age'].apply(str)
+
+fig4 = make_subplots(specs=[[{"secondary_y": True}]])
+
+fig4 = go.Figure(data = fig4.add_trace(go.Bar(x=transfSeasonSales['Season'] ,
+                     y=transfSeasonSales['MoneySpent'],
+                     name="Amount Spend by Team",
+                     text=transfSeasonSales['Team']+ ' - ' +transfSeasonSales['Country'],
+                     hovertemplate='<b>%{text}</b>' +
+                                   '<br><b>Spending</b>: €%{y}',
+                     marker_color='dimgray')
+                     ,secondary_y=False,))
+fig4 = go.Figure(data = fig4.add_trace(go.Scatter(x=MaxSeasonSale['Season'],
+                         y=MaxSeasonSale['Transfer_fee'],
+                        name="Highest Transfer",
+                        text="Player: "+MaxSeasonSale['Name'] + ' ('+MaxSeasonSale['Age'] +"yrs) <br>"+
+                             "From: "+MaxSeasonSale['Team_from']+" - "+MaxSeasonSale['Country_from']+" <br>"+
+                             "To: "+MaxSeasonSale['Team_to']+" - "+MaxSeasonSale['Country_to'],
+                        hovertemplate= '%{text}' +
+                                       '<br><b>Transfer fee</b>: €%{y}',
+                              marker_color='navy'
+                        ),secondary_y=True))
+fig4 = go.Figure(data = fig4.add_trace(go.Scatter(x=MinSeasonSale['Season'],
+                         y=MinSeasonSale['Transfer_fee'],
+                        name="Lowest Transfer",
+                        text="Player: "+MinSeasonSale['Name'] + ' ('+MinSeasonSale['Age'] +"yrs) <br>"+
+                             "From: "+MinSeasonSale['Team_from']+" - "+MinSeasonSale['Country_from']+" <br>"+
+                             "To: "+MinSeasonSale['Team_to']+" - "+MinSeasonSale['Country_to'],
+                        hovertemplate= '%{text}' +
+                                       '<br><b>Transfer fee</b>: €%{y}',
+                         marker_color='red'
+                        ),secondary_y=True))
+
+fig4.update_layout(dict(title = 'Total Transfers by Team per Season',
+                       xaxis = dict(title = 'Season'),
+                       yaxis = dict(title = 'Transfer Fee Team'),
+                       legend= dict(x=-.1, y=1.1),
+                       legend_orientation="h"))
+
+fig4.update_yaxes(title_text="Highest\Lowest Transfer Fee ", secondary_y=True)
+
+
+# Forth Gustavo plot
+
+CountryRelations = transfers.groupby(['Country_to','Country_from']).agg(Transfer_fee=('Transfer_fee', 'sum'), Transactions = ('Transfer_fee', 'size')).reset_index()
+#CountryRelations = CountryRelations[CountryRelations['Country_to'] != CountryRelations['Country_from']]
+
+Country = pd.DataFrame(CountryRelations['Country_to'].append(CountryRelations['Country_from']), columns = ["Country"])
+Country.drop_duplicates(inplace=True)
+
+le = preprocessing.LabelEncoder()
+Country["Country_ind"] = le.fit_transform(Country["Country"])
+Country.sort_values(['Country_ind'], inplace = True)
+CountryRelations = CountryRelations.merge(Country, how = 'left', left_on = 'Country_to', right_on = 'Country')
+CountryRelations = CountryRelations.merge(Country, how = 'left', left_on = 'Country_from', right_on = 'Country')
+CountryRelations.sort_values(['Transfer_fee'], inplace = True, ascending=False)
+CountryRelations = CountryRelations.head(50)
+
+fig5 = go.Figure(data = go.Sankey(
+    valuesuffix = "€",
+    # Define nodes
+    node = dict(label = Country["Country"]
+               ),
+    # Add links
+    link = dict(
+          source =  CountryRelations["Country_ind_y"],
+          target =  CountryRelations["Country_ind_x"],
+          value =   CountryRelations["Transfer_fee"],
+          hovertemplate = '%{x}' + '<br><b>Transfer fee</b>: €%{y}'
+      )))
+
+# Fifth plot Gustavo
+columnSet = ['Continent', 'Country_to', 'Team_to', 'Position_B', 'Name']
+database = pd.DataFrame(columns= ['ids', 'labels', 'parents', 'transfers', 'transferfee'])
+for i, columnName in enumerate(columnSet):
+    database1 = pd.DataFrame(columns= ['ids', 'labels', 'parents', 'transfers', 'transferfee'])
+    groupdf = transfers.groupby(columnSet[:i+1]).agg(transfers = ('Transfer_fee', 'size'), transferfee =  ('Transfer_fee', 'sum')).reset_index()
+    if i == 0:
+        database1['ids'] = groupdf[columnName]
+        database1['labels'] = groupdf[columnName]
+        database1['transfers'] = groupdf['transfers']
+        database1['transferfee'] = groupdf['transferfee']
+        database = database.append(database1)
+    else:
+        groupdf['combined1'] = groupdf[columnSet[:i+1]].apply(lambda row: ' - '.join(row.values.astype(str)), axis=1)
+        groupdf['combined2'] = groupdf[columnSet[:i]].apply(lambda row: ' - '.join(row.values.astype(str)), axis=1)
+        database1['ids'] = groupdf['combined1']
+        database1['labels'] = groupdf[columnName]
+        database1['parents'] = groupdf['combined2']
+        database1['transfers'] = groupdf['transfers']
+        database1['transferfee'] = groupdf['transferfee']
+        database = database.append(database1)
+
+fee_max = 30
+fig6 = go.Figure()
+
+fig6 = go.Figure(data = fig6.add_trace(go.Sunburst(
+    ids=database.ids,
+    labels=database.labels,
+    parents=database.parents,
+    values=database.transfers,
+    branchvalues = 'total',
+    marker=dict(
+        cmin = transfers['Transfer_fee'].min(),
+        cmax = 1820000000,
+        colors=database.transferfee,
+        colorscale='OrRd'),
+    hovertemplate='<b>%{label} </b> <br> Transfers: %{value}<br> Transfer fee: €%{color:,}',
+    maxdepth=3
+)))
+
+fig6.update_layout(
+    grid= dict(columns=2, rows=1),
+    margin = dict(t=0, l=0, r=0, b=0)
 )
+
+external_ss = [
+    '/Users/Philipp/PycharmProjects/DEFINITIVE/assets/style.css',
+    {
+        'href': '/Users/Philipp/PycharmProjects/DEFINITIVE/assets/style.css',
+        'rel': 'stylesheet',
+        'integrity': 'sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO',
+        'crossorigin': 'anonymous'
+    }
+]
+app = dash.Dash(external_stylesheets=external_ss)
+
 server = app.server
 
-
-# Plotly mapbox public token
-mapbox_access_token = "pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNqdnBvNDMyaTAxYzkzeW5ubWdpZ2VjbmMifQ.TXcBE-xg9BFdV2ocecc_7g"
-
-# Dictionary of important locations in New York
-list_of_locations = {
-    "Madison Square Garden": {"lat": 40.7505, "lon": -73.9934},
-    "Yankee Stadium": {"lat": 40.8296, "lon": -73.9262},
-    "Empire State Building": {"lat": 40.7484, "lon": -73.9857},
-    "New York Stock Exchange": {"lat": 40.7069, "lon": -74.0113},
-    "JFK Airport": {"lat": 40.644987, "lon": -73.785607},
-    "Grand Central Station": {"lat": 40.7527, "lon": -73.9772},
-    "Times Square": {"lat": 40.7589, "lon": -73.9851},
-    "Columbia University": {"lat": 40.8075, "lon": -73.9626},
-    "United Nations HQ": {"lat": 40.7489, "lon": -73.9680},
-}
-
-# Initialize data frame
-df1 = pd.read_csv(
-    "https://raw.githubusercontent.com/plotly/datasets/master/uber-rides-data1.csv",
-    dtype=object,
-)
-df2 = pd.read_csv(
-    "https://raw.githubusercontent.com/plotly/datasets/master/uber-rides-data2.csv",
-    dtype=object,
-)
-df3 = pd.read_csv(
-    "https://raw.githubusercontent.com/plotly/datasets/master/uber-rides-data3.csv",
-    dtype=object,
-)
-df = pd.concat([df1, df2, df3], axis=0)
-df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d %H:%M")
-df.index = df["Date/Time"]
-df.drop("Date/Time", 1, inplace=True)
-totalList = []
-for month in df.groupby(df.index.month):
-    dailyList = []
-    for day in month[1].groupby(month[1].index.day):
-        dailyList.append(day[1])
-    totalList.append(dailyList)
-totalList = np.array(totalList)
-
-# Layout of Dash App
 app.layout = html.Div(
     children=[
         html.Div(
@@ -68,9 +273,9 @@ app.layout = html.Div(
                     className="four columns div-user-controls",
                     children=[
                         html.Img(
-                            className="logo", src=app.get_asset_url("dash-logo-new.png")
+                            className="logo", src=app.get_asset_url("image.png")
                         ),
-                        html.H2("DASH - UBER DATA APP"),
+                        html.H2('FOOTBALL TRANSFERS'),
                         html.P(
                             """Select different days using the date picker or by selecting 
                             different time frames on the histogram."""
@@ -80,11 +285,11 @@ app.layout = html.Div(
                             children=[
                                 dcc.DatePickerSingle(
                                     id="date-picker",
-                                    min_date_allowed=dt(2014, 4, 1),
-                                    max_date_allowed=dt(2014, 9, 30),
-                                    initial_visible_month=dt(2014, 4, 1),
-                                    date=dt(2014, 4, 1).date(),
-                                    display_format="MMMM D, YYYY",
+                                    min_date_allowed=df_football['Year'].unique(),
+                                    max_date_allowed=df_football['Year'].unique(),
+                                    initial_visible_month=df_football['Year'].unique(),
+                                    date=df_football['Year'].unique(),
+                                    display_format="Year",
                                     style={"border": "0px solid black"},
                                 )
                             ],
@@ -101,28 +306,10 @@ app.layout = html.Div(
                                             id="location-dropdown",
                                             options=[
                                                 {"label": i, "value": i}
-                                                for i in list_of_locations
+                                                for i in df_football['Country_from'].unique()
                                             ],
                                             placeholder="Select a location",
-                                        )
-                                    ],
-                                ),
-                                html.Div(
-                                    className="div-for-dropdown",
-                                    children=[
-                                        # Dropdown to select times
-                                        dcc.Dropdown(
-                                            id="bar-selector",
-                                            options=[
-                                                {
-                                                    "label": str(n) + ":00",
-                                                    "value": str(n),
-                                                }
-                                                for n in range(24)
-                                            ],
-                                            multi=True,
-                                            placeholder="Select certain hours",
-                                        )
+                                        ),
                                     ],
                                 ),
                             ],
@@ -130,372 +317,69 @@ app.layout = html.Div(
                         html.P(id="total-rides"),
                         html.P(id="total-rides-selection"),
                         html.P(id="date-value"),
-                        dcc.Markdown(
-                            children=[
-                                "Source: [FiveThirtyEight](https://github.com/fivethirtyeight/uber-tlc-foil-response/tree/master/uber-trip-data)"
-                            ]
-                        ),
                     ],
                 ),
                 # Column for app graphs and plots
                 html.Div(
                     className="eight columns div-for-charts bg-grey",
                     children=[
-                        dcc.Graph(id="map-graph"),
+                        dcc.Graph(id='graph-with-slider'),
+                        dcc.Slider(
+                            id='year-slider',
+                            min=df_football['Year'].min(),
+                            max=df_football['Year'].max(),
+                            marks={str(i): '{}'.format(i) for i in df_football['Year'].unique()},
+                            value=2000),
                         html.Div(
                             className="text-padding",
                             children=[
                                 "Select any of the bars on the histogram to section data by time."
                             ],
                         ),
-                        dcc.Graph(id="histogram"),
-                    ],
-                ),
+                        html.P(html.Div([
+                            dcc.Graph(id='line_plot', figure=fig2)
+                        ])),
+                        html.P(html.Div([
+                            dcc.Graph(id='second_plot', figure=fig3)
+                        ])),
+
+                        html.P(html.Div([
+                            dcc.Graph(id='third_plot', figure=fig4)
+                        ])),
+                        html.P(html.Div([
+                            dcc.Graph(id='forth_plot', figure=fig5)
+                        ])),
+                        html.P(html.Div([
+                            dcc.Graph(id='fifth_plot', figure=fig6)
+                        ]))
+                    ], id='outer_division'),
             ],
         )
     ]
 )
 
-# Gets the amount of days in the specified month
-# Index represents month (0 is April, 1 is May, ... etc.)
-daysInMonth = [30, 31, 30, 31, 31, 30]
-
-# Get index for the specified month in the dataframe
-monthIndex = pd.Index(["Apr", "May", "June", "July", "Aug", "Sept"])
-
-# Get the amount of rides per hour based on the time selected
-# This also higlights the color of the histogram bars based on
-# if the hours are selected
-def get_selection(month, day, selection):
-    xVal = []
-    yVal = []
-    xSelected = []
-    colorVal = [
-        "#F4EC15",
-        "#DAF017",
-        "#BBEC19",
-        "#9DE81B",
-        "#80E41D",
-        "#66E01F",
-        "#4CDC20",
-        "#34D822",
-        "#24D249",
-        "#25D042",
-        "#26CC58",
-        "#28C86D",
-        "#29C481",
-        "#2AC093",
-        "#2BBCA4",
-        "#2BB5B8",
-        "#2C99B4",
-        "#2D7EB0",
-        "#2D65AC",
-        "#2E4EA4",
-        "#2E38A4",
-        "#3B2FA0",
-        "#4E2F9C",
-        "#603099",
-    ]
-
-    # Put selected times into a list of numbers xSelected
-    xSelected.extend([int(x) for x in selection])
-
-    for i in range(24):
-        # If bar is selected then color it white
-        if i in xSelected and len(xSelected) < 24:
-            colorVal[i] = "#FFFFFF"
-        xVal.append(i)
-        # Get the number of rides at a particular time
-        yVal.append(len(totalList[month][day][totalList[month][day].index.hour == i]))
-    return [np.array(xVal), np.array(yVal), np.array(colorVal)]
 
 
-# Selected Data in the Histogram updates the Values in the DatePicker
 @app.callback(
-    Output("bar-selector", "value"),
-    [Input("histogram", "selectedData"), Input("histogram", "clickData")],
-)
-def update_bar_selector(value, clickData):
-    holder = []
-    if clickData:
-        holder.append(str(int(clickData["points"][0]["x"])))
-    if value:
-        for x in value["points"]:
-            holder.append(str(int(x["x"])))
-    return list(set(holder))
+    Output('graph-with-slider', 'figure'),
+    [Input('year-slider', 'value')])
 
+def update_figure(selected_year):
+    filtered_df = df_football.loc[df_football['Year'] == int(selected_year)]
 
-# Clear Selected Data if Click Data is used
-@app.callback(Output("histogram", "selectedData"), [Input("histogram", "clickData")])
-def update_selected_data(clickData):
-    if clickData:
-        return {"points": []}
+    fig = [go.Choropleth(
+            locationmode='country names',
+            locations= filtered_df.loc[filtered_df['Country_from'] == i]['Country_from'].unique(),
+            z = [filtered_df.loc[filtered_df['Country_from'] == i]['Transfer_fee'].sum()],
+            text = [filtered_df.loc[filtered_df['Country_from'] == i]['Name'].to_string() + '\n'],
+            hovertemplate='%{text}',
+            colorscale='Blues',
+            colorbar_title='Football',
+            ) for i in filtered_df['Country_from'].unique()]
 
+    return go.Figure(data=fig, layout=layout_fig)
 
-# Update the total number of rides Tag
-@app.callback(Output("total-rides", "children"), [Input("date-picker", "date")])
-def update_total_rides(datePicked):
-    date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    return "Total Number of rides: {:,d}".format(
-        len(totalList[date_picked.month - 4][date_picked.day - 1])
-    )
-
-
-# Update the total number of rides in selected times
-@app.callback(
-    [Output("total-rides-selection", "children"), Output("date-value", "children")],
-    [Input("date-picker", "date"), Input("bar-selector", "value")],
-)
-def update_total_rides_selection(datePicked, selection):
-    firstOutput = ""
-
-    if selection is not None or len(selection) is not 0:
-        date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-        totalInSelection = 0
-        for x in selection:
-            totalInSelection += len(
-                totalList[date_picked.month - 4][date_picked.day - 1][
-                    totalList[date_picked.month - 4][date_picked.day - 1].index.hour
-                    == int(x)
-                ]
-            )
-        firstOutput = "Total rides in selection: {:,d}".format(totalInSelection)
-
-    if (
-        datePicked is None
-        or selection is None
-        or len(selection) is 24
-        or len(selection) is 0
-    ):
-        return firstOutput, (datePicked, " - showing hour(s): All")
-
-    holder = sorted([int(x) for x in selection])
-
-    if holder == list(range(min(holder), max(holder) + 1)):
-        return (
-            firstOutput,
-            (
-                datePicked,
-                " - showing hour(s): ",
-                holder[0],
-                "-",
-                holder[len(holder) - 1],
-            ),
-        )
-
-    holder_to_string = ", ".join(str(x) for x in holder)
-    return firstOutput, (datePicked, " - showing hour(s): ", holder_to_string)
-
-
-# Update Histogram Figure based on Month, Day and Times Chosen
-@app.callback(
-    Output("histogram", "figure"),
-    [Input("date-picker", "date"), Input("bar-selector", "value")],
-)
-def update_histogram(datePicked, selection):
-    date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    monthPicked = date_picked.month - 4
-    dayPicked = date_picked.day - 1
-
-    [xVal, yVal, colorVal] = get_selection(monthPicked, dayPicked, selection)
-
-    layout = go.Layout(
-        bargap=0.01,
-        bargroupgap=0,
-        barmode="group",
-        margin=go.layout.Margin(l=10, r=0, t=0, b=50),
-        showlegend=False,
-        plot_bgcolor="#323130",
-        paper_bgcolor="#323130",
-        dragmode="select",
-        font=dict(color="white"),
-        xaxis=dict(
-            range=[-0.5, 23.5],
-            showgrid=False,
-            nticks=25,
-            fixedrange=True,
-            ticksuffix=":00",
-        ),
-        yaxis=dict(
-            range=[0, max(yVal) + max(yVal) / 4],
-            showticklabels=False,
-            showgrid=False,
-            fixedrange=True,
-            rangemode="nonnegative",
-            zeroline=False,
-        ),
-        annotations=[
-            dict(
-                x=xi,
-                y=yi,
-                text=str(yi),
-                xanchor="center",
-                yanchor="bottom",
-                showarrow=False,
-                font=dict(color="white"),
-            )
-            for xi, yi in zip(xVal, yVal)
-        ],
-    )
-
-    return go.Figure(
-        data=[
-            go.Bar(x=xVal, y=yVal, marker=dict(color=colorVal), hoverinfo="x"),
-            go.Scatter(
-                opacity=0,
-                x=xVal,
-                y=yVal / 2,
-                hoverinfo="none",
-                mode="markers",
-                marker=dict(color="rgb(66, 134, 244, 0)", symbol="square", size=40),
-                visible=True,
-            ),
-        ],
-        layout=layout,
-    )
-
-
-# Get the Coordinates of the chosen months, dates and times
-def getLatLonColor(selectedData, month, day):
-    listCoords = totalList[month][day]
-
-    # No times selected, output all times for chosen month and date
-    if selectedData is None or len(selectedData) is 0:
-        return listCoords
-    listStr = "listCoords["
-    for time in selectedData:
-        if selectedData.index(time) is not len(selectedData) - 1:
-            listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ") | "
-        else:
-            listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ")]"
-    return eval(listStr)
-
-
-# Update Map Graph based on date-picker, selected data on histogram and location dropdown
-@app.callback(
-    Output("map-graph", "figure"),
-    [
-        Input("date-picker", "date"),
-        Input("bar-selector", "value"),
-        Input("location-dropdown", "value"),
-    ],
-)
-def update_graph(datePicked, selectedData, selectedLocation):
-    zoom = 12.0
-    latInitial = 40.7272
-    lonInitial = -73.991251
-    bearing = 0
-
-    if selectedLocation:
-        zoom = 15.0
-        latInitial = list_of_locations[selectedLocation]["lat"]
-        lonInitial = list_of_locations[selectedLocation]["lon"]
-
-    date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    monthPicked = date_picked.month - 4
-    dayPicked = date_picked.day - 1
-    listCoords = getLatLonColor(selectedData, monthPicked, dayPicked)
-
-    return go.Figure(
-        data=[
-            # Data for all rides based on date and time
-            Scattermapbox(
-                lat=listCoords["Lat"],
-                lon=listCoords["Lon"],
-                mode="markers",
-                hoverinfo="lat+lon+text",
-                text=listCoords.index.hour,
-                marker=dict(
-                    showscale=True,
-                    color=np.append(np.insert(listCoords.index.hour, 0, 0), 23),
-                    opacity=0.5,
-                    size=5,
-                    colorscale=[
-                        [0, "#F4EC15"],
-                        [0.04167, "#DAF017"],
-                        [0.0833, "#BBEC19"],
-                        [0.125, "#9DE81B"],
-                        [0.1667, "#80E41D"],
-                        [0.2083, "#66E01F"],
-                        [0.25, "#4CDC20"],
-                        [0.292, "#34D822"],
-                        [0.333, "#24D249"],
-                        [0.375, "#25D042"],
-                        [0.4167, "#26CC58"],
-                        [0.4583, "#28C86D"],
-                        [0.50, "#29C481"],
-                        [0.54167, "#2AC093"],
-                        [0.5833, "#2BBCA4"],
-                        [1.0, "#613099"],
-                    ],
-                    colorbar=dict(
-                        title="Time of<br>Day",
-                        x=0.93,
-                        xpad=0,
-                        nticks=24,
-                        tickfont=dict(color="#d8d8d8"),
-                        titlefont=dict(color="#d8d8d8"),
-                        thicknessmode="pixels",
-                    ),
-                ),
-            ),
-            # Plot of important locations on the map
-            Scattermapbox(
-                lat=[list_of_locations[i]["lat"] for i in list_of_locations],
-                lon=[list_of_locations[i]["lon"] for i in list_of_locations],
-                mode="markers",
-                hoverinfo="text",
-                text=[i for i in list_of_locations],
-                marker=dict(size=8, color="#ffa0a0"),
-            ),
-        ],
-        layout=Layout(
-            autosize=True,
-            margin=go.layout.Margin(l=0, r=35, t=0, b=0),
-            showlegend=False,
-            mapbox=dict(
-                accesstoken=mapbox_access_token,
-                center=dict(lat=latInitial, lon=lonInitial),  # 40.7272  # -73.991251
-                style="dark",
-                bearing=bearing,
-                zoom=zoom,
-            ),
-            updatemenus=[
-                dict(
-                    buttons=(
-                        [
-                            dict(
-                                args=[
-                                    {
-                                        "mapbox.zoom": 12,
-                                        "mapbox.center.lon": "-73.991251",
-                                        "mapbox.center.lat": "40.7272",
-                                        "mapbox.bearing": 0,
-                                        "mapbox.style": "dark",
-                                    }
-                                ],
-                                label="Reset Zoom",
-                                method="relayout",
-                            )
-                        ]
-                    ),
-                    direction="left",
-                    pad={"r": 0, "t": 0, "b": 0, "l": 0},
-                    showactive=False,
-                    type="buttons",
-                    x=0.45,
-                    y=0.02,
-                    xanchor="left",
-                    yanchor="bottom",
-                    bgcolor="#323130",
-                    borderwidth=1,
-                    bordercolor="#6d6d6d",
-                    font=dict(color="#FFFFFF"),
-                )
-            ],
-        ),
-    )
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run_server(debug=True)
+
+
