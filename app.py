@@ -250,15 +250,8 @@ fig6.update_layout(
     margin = dict(t=0, l=0, r=0, b=0)
 )
 
-external_ss = [
-    '/Users/Philipp/PycharmProjects/DEFINITIVE/assets/style.css',
-    {
-        'href': '/Users/Philipp/PycharmProjects/DEFINITIVE/assets/style.css',
-        'rel': 'stylesheet',
-        'integrity': 'sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO',
-        'crossorigin': 'anonymous'
-    }
-]
+external_ss = ['assets/style.css']
+
 app = dash.Dash(external_stylesheets=external_ss)
 
 server = app.server
