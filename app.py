@@ -273,6 +273,7 @@ fig6.update_layout(
 
 
 app = dash.Dash()
+server = app.server
 
 app.layout=html.Div([
 
