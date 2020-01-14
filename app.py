@@ -308,6 +308,7 @@ fig6 = go.Figure(data = data6, layout = layout_fig6)
 ##################################################APP###############################################################
 
 app = dash.Dash(__name__)
+server = app.server
 
 app.layout = html.Div([
 
