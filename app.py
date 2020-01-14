@@ -1,12 +1,19 @@
+# Import required libraries
+import pickle
+import copy
+import pathlib
 import dash
+import math
+import datetime as dt
+import pandas as pd
+from dash.dependencies import Input, Output, State, ClientsideFunction
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
 import numpy as np
-import pandas as pd
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from sklearn import preprocessing
+
 
 
 ######################################################Data##############################################################
@@ -180,7 +187,7 @@ data3 = go.Sunburst(
         colors=database.transferfee,
         colorscale='OrRd'),
     hovertemplate='<b>%{label} </b> <br> Transfers: %{value}<br> Transfer fee: €%{color:,}',
-    maxdepth=3
+    maxdepth=3,
 )
 
 layout_fig3 = dict(#title = 'SUN PLOT',
@@ -240,7 +247,8 @@ fig4.update_layout(dict(title = 'Total Transfers by Team per Season',
                        xaxis = dict(title = 'Season'),
                        yaxis = dict(title = 'Transfer Fee Team'),
                        legend= dict(x=-.1, y=1.1),
-                       legend_orientation="h"))
+                       legend_orientation="h")
+)
 
 fig4.update_yaxes(title_text="Highest\Lowest Transfer Fee ", secondary_y=True)
 
@@ -310,79 +318,136 @@ fig6 = go.Figure(data = data6, layout = layout_fig6)
 app = dash.Dash(__name__)
 server = app.server
 
-app.layout = html.Div([
+# Create app layout
+app.layout = html.Div(
+    [
+        dcc.Store(id="aggregate_data"),
+        # empty Div to trigger javascript file for graph resizing
+        html.Div(id="output-clientside"),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        # html.Img(
+                        #     src=app.get_asset_url("dash-logo.png"),
+                        #     id="plotly-image",
+                        #     style={
+                        #         "height": "60px",
+                        #         "width": "auto",
+                        #         "margin-bottom": "25px",
+                        #     },
+                        # )
+                    ],
+                    className="one-third column",
+                ),
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.H3(
+                                    "Football Manager",
+                                    style={"margin-bottom": "0px"},
+                                ),
+                                html.H5(
+                                    "Transfers Dashboard", style={"margin-top": "0px"}
+                                ),
+                            ]
+                        )
+                    ],
+                    className="one-half column",
+                    id="title",
+                ),
+            ],
+            id="header",
+            className="row flex-display",
+            style={"margin-bottom": "25px"},
+        ),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.P("Choose a season:", className="control_label"),
+                        dcc.RadioItems(
+                            id="well_status_selector",
+                        ),
+                        dcc.Dropdown(
+                            id="year-dropdown",
+                            options=[{'label' : '2000-2001', 'value' : '2000-2001' },
+                             {'label' : '2001-2002', 'value' : '2001-2002' },
+                             {'label' : '2002-2003', 'value' : '2002-2003' },
+                             {'label' : '2003-2004', 'value' : '2003-2004' },
+                             {'label' : '2004-2005', 'value' : '2004-2005' },
+                             {'label' : '2005-2006', 'value' : '2005-2006' },
+                             {'label' : '2006-2007', 'value' : '2006-2007' },
+                             {'label' : '2007-2008', 'value' : '2007-2008' },
+                             {'label' : '2008-2009', 'value' : '2008-2009' },
+                             {'label' : '2009-2010', 'value' : '2009-2010' },
+                             {'label' : '2011-2012', 'value' : '2011-2012' },
+                             {'label' : '2012-2013', 'value' : '2012-2013' },
+                             {'label' : '2013-2014', 'value' : '2013-2014' },
+                             {'label' : '2014-2015', 'value' : '2014-2015' },
+                             {'label' : '2015-2016', 'value' : '2015-2016' },
+                             {'label' : '2016-2017', 'value' : '2016-2017' },
+                             {'label' : '2017-2018', 'value' : '2017-2018' },
+                        ],
+                        value='2000-2001'
+                        ),
+                    ],className="pretty_container four columns",id="cross-filter-options",
+                ),
+                html.Div(
+                    [
+                        html.Div([
+                            html.Div([dcc.Graph(id='graph3-with-slider')],
+                                     className="pretty_container seven columns",
+                            ),
+                            html.Div([dcc.Graph(id='graph4-with-slider', figure=fig4)],
+                                     className="pretty_container five columns",
+                            ),
+                        ],
+                            id="countGraphContainer",
+                            className="pretty_container",
+                        ),
+                    ],
+                    id="right-column",
+                    className="eight columns",
+                ),
+            ],
+            className="row flex-display",
+        ),
+        html.Div(
+            [
+                html.Div(
+                    [html.Div([dcc.Graph(id='graph-with-slider')])],
+                    className="pretty_container seven columns",
+                ),
+                html.Div(
+                    [html.Div([dcc.Graph(id='graph2-with-slider')])],
+                    className="pretty_container five columns",
+                ),
+            ],
+            className="row flex-display",
+        ),
+        html.Div(
+            [
+                html.Div(
+                    [dcc.Graph(id='graph6-with-slider')],
+                    className="pretty_container seven columns",
+                ),
+                html.Div(
+                    [dcc.Graph(id='graph5-with-slider')],
+                    className="pretty_container five columns",
+                ),
+            ],
+            className="row flex-display",
+        ),
+    ],
+    id="mainContainer",
+    style={"display": "flex", "flex-direction": "column"},
+)
 
-    html.Div([
-        html.Div([
-            html.H3("Football manager 2020"),
-            html.Label('Season Choice'),
-            dcc.Dropdown(
-                id='year-dropdown',
-                options=[{'label' : '2000-2001', 'value' : '2000-2001' },
-                         {'label' : '2001-2002', 'value' : '2001-2002' },
-                         {'label' : '2002-2003', 'value' : '2002-2003' },
-                         {'label' : '2003-2004', 'value' : '2003-2004' },
-                         {'label' : '2004-2005', 'value' : '2004-2005' },
-                         {'label' : '2005-2006', 'value' : '2005-2006' },
-                         {'label' : '2006-2007', 'value' : '2006-2007' },
-                         {'label' : '2007-2008', 'value' : '2007-2008' },
-                         {'label' : '2008-2009', 'value' : '2008-2009' },
-                         {'label' : '2009-2010', 'value' : '2009-2010' },
-                         {'label' : '2011-2012', 'value' : '2011-2012' },
-                         {'label' : '2012-2013', 'value' : '2012-2013' },
-                         {'label' : '2013-2014', 'value' : '2013-2014' },
-                         {'label' : '2014-2015', 'value' : '2014-2015' },
-                         {'label' : '2015-2016', 'value' : '2015-2016' },
-                         {'label' : '2016-2017', 'value' : '2016-2017' },
-                         {'label' : '2017-2018', 'value' : '2017-2018' },
-                ],
-                value='2000-2001'
-            ),
-
-        ], className='column1 pretty'),
-
-
-    ], className='row'),
-
-    html.Div([
-
-        html.Div([dcc.Graph(id='graph3-with-slider')], className='column1 pretty1'),  # HERE BAR PLOT
-
-        html.Div([
-            html.Div([dcc.Graph(id='graph-with-slider')])
-        ],className='column2 pretty1')  # HERE FIRST PLOT
-
-    ], className='row1'),
-
-    html.Div([
-
-        html.Div([
-            html.Div([dcc.Graph(id='graph6-with-slider')])
-        ], className='column2 pretty1'),  # HERE LAST PLOT
-        html.Div([dcc.Graph(id='graph5-with-slider')], className='column3 pretty1')  # HERE sunburst PLOT
-
-    ], className='row1'),
-
-    html.Div([
-
-        html.Div([dcc.Graph(id='graph4-with-slider', figure=fig4)]),  # HERE OTHER PLOT
-        html.Div([
-            html.Div([dcc.Graph(id='graph2-with-slider')])  # HERE OTHER PLOT
-        ], className='column2 pretty1')
-
-    ], className='row1'),
-
-
-])
-
-######################################################Callbacks#########################################################
-
-
-# ############################################First Bar Plot##########################################################
 @app.callback(
     Output('graph-with-slider', 'figure'),
     [Input('year-dropdown', 'value')])
-
 
 def update_figure1(selected_year):
     filtered_df = filtered_df_2.loc[filtered_df_2['Season'] == selected_year]
@@ -407,7 +472,6 @@ def update_figure1(selected_year):
 
     return go.Figure(data=data, layout=layout_fig)
 
-# ##############################################Second Choropleth######################################################
 @app.callback(
     Output('graph2-with-slider', 'figure'),
     [Input('year-dropdown', 'value')])
@@ -438,7 +502,7 @@ def update_figure2(selected_year):
 
     return go.Figure(data=data2, layout=layout_fig2)
 
-# #############################################Third Scatter Plot######################################################
+
 @app.callback(
     Output('graph3-with-slider', 'figure'),
     [Input('year-dropdown', 'value')])
@@ -538,5 +602,6 @@ def update_figure5(selected_year):
 
     return go.Figure(data = data6)
 
-if __name__ == '__main__':
-  app.run_server(debug=True)
+# Main
+if __name__ == "__main__":
+    app.run_server(debug=True)
