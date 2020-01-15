@@ -206,7 +206,7 @@ data3 = go.Sunburst(
     maxdepth=3,
 )
 
-layout_fig3 = dict(title = 'Player Exploration',
+layout_fig3 = dict(title = 'Purchase Map',
     grid= dict(columns=1, rows=1),
     margin = dict(t=65, l=0, r=0, b=50),
     paper_bgcolor='rgba(0,0,0,0)',
@@ -306,7 +306,7 @@ data5 = go.Sankey(
         hovertemplate='%{label}'
     ))
 
-layout_fig5 = dict(title = 'Relation between Countries',
+layout_fig5 = dict(title = 'Top 50 Relation between Countries',
     grid= dict(columns=1, rows=1),
     margin = dict(t=65, l=50, r=0, b=0),
     paper_bgcolor= '#e6e6e6',
