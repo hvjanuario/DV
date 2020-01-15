@@ -50,7 +50,9 @@ layout_fig = dict(geo=dict(
     ),
         title=dict(text='Football'),
         grid = dict(columns=1, rows=1),
-        margin = dict(t=40, l=0, r=0, b=0)
+        margin = dict(t=40, l=0, r=0, b=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
 )
 
 data = [go.Choropleth(
@@ -148,7 +150,10 @@ data2 = [go.Scatter(
 
 layout_fig2 = dict(title='Total Transfers Per Team Per Season',
                    xaxis=dict(title='Total Recived by Sales'),
-                   yaxis=dict(title='Total Invested in Hiring'))
+                   yaxis=dict(title='Total Invested in Hiring'),
+                   paper_bgcolor='rgba(0,0,0,0)',
+                   plot_bgcolor='rgba(0,0,0,0)'
+                   )
 
 fig2 = go.Figure(data=data2, layout=layout_fig2)
 
@@ -193,7 +198,9 @@ data3 = go.Sunburst(
 layout_fig3 = dict(#title = 'SUN PLOT',
 
     grid= dict(columns=1, rows=1),
-    margin = dict(t=65, l=0, r=0, b=50)
+    margin = dict(t=65, l=0, r=0, b=50),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
 )
 
 fig3 = go.Figure(data=data3, layout=layout_fig3)
@@ -247,7 +254,9 @@ fig4.update_layout(dict(title = 'Total Transfers by Team per Season',
                        xaxis = dict(title = 'Season'),
                        yaxis = dict(title = 'Transfer Fee Team'),
                        legend= dict(x=-.1, y=1.1),
-                       legend_orientation="h")
+                       legend_orientation="h"),
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)'
 )
 
 fig4.update_yaxes(title_text="Highest\Lowest Transfer Fee ", secondary_y=True)
@@ -287,7 +296,9 @@ data5 = go.Sankey(
 
 layout_fig5 = dict(
     grid= dict(columns=1, rows=1),
-    margin = dict(t=0, l=0, r=0, b=0)
+    margin = dict(t=100, l=50, r=0, b=0),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
 )
 
 fig5 = go.Figure(data=data5, layout = layout_fig5)
@@ -297,18 +308,18 @@ CountryRelations_b = CountryRelations2.iloc[:20]
 CountryRelations_b['Relations'] = (CountryRelations_b['Country_from'] + ' to '+ CountryRelations_b['Country_to'])
 CountryRelations_b.sort_values(['Transfer_fee'], inplace = True)
 
-data6 = go.Bar(y=CountryRelations_b['Relations'],
-                     x=CountryRelations_b["Transfer_fee"],
-                     orientation='h',
-                     name = '',
-                     text = '<b>Transfer fee:</b> ' +  (CountryRelations_b['Transfer_fee'].round(-5)/1000000).astype(str)+'M'+
-                            '<br><b>Transfers:</b> ' +  CountryRelations_b['Transactions'].astype(str),
-                     hovertemplate = '%{text}'
-            )
+data6 =go.Table(columnwidth = [5,3,2],
+                header=dict(values=['<b>Trades between<br>Countries.</b> From-To',
+                                    '<b>Transfer</b><br> in MM.€', '<b>Nº</b><br>'],
+                                           align=['center','center','center']),
+                               cells=dict(values=[CountryRelations_b['Relations'],(CountryRelations_b['Transfer_fee']/1000000).round(1),CountryRelations_b['Transactions'] ])
+                              )
 
 layout_fig6 = dict(
     grid= dict(columns=1, rows=1),
-    margin = dict(t=0, l=0, r=0, b=0)
+    margin = dict(t=0, l=0, r=0, b=0),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
 )
 
 fig6 = go.Figure(data = data6, layout = layout_fig6)
@@ -317,7 +328,6 @@ fig6 = go.Figure(data = data6, layout = layout_fig6)
 
 app = dash.Dash(__name__)
 server = app.server
-
 # Create app layout
 app.layout = html.Div(
     [
@@ -326,20 +336,6 @@ app.layout = html.Div(
         html.Div(id="output-clientside"),
         html.Div(
             [
-                html.Div(
-                    [
-                        # html.Img(
-                        #     src=app.get_asset_url("dash-logo.png"),
-                        #     id="plotly-image",
-                        #     style={
-                        #         "height": "60px",
-                        #         "width": "auto",
-                        #         "margin-bottom": "25px",
-                        #     },
-                        # )
-                    ],
-                    className="one-third column",
-                ),
                 html.Div(
                     [
                         html.Div(
@@ -357,13 +353,6 @@ app.layout = html.Div(
                     className="one-half column",
                     id="title",
                 ),
-            ],
-            id="header",
-            className="row flex-display",
-            style={"margin-bottom": "25px"},
-        ),
-        html.Div(
-            [
                 html.Div(
                     [
                         html.P("Choose a season:", className="control_label"),
@@ -394,22 +383,21 @@ app.layout = html.Div(
                         ),
                     ],className="pretty_container four columns",id="cross-filter-options",
                 ),
-                html.Div(
-                    [
-                        html.Div([
-                            html.Div([dcc.Graph(id='graph3-with-slider')],
+            ],
+            id="header",
+            className="row flex-display",
+            style={"margin-bottom": "25px"},
+        ),
+        html.Div(
+            [
+                html.Div([dcc.Graph(id='graph3-with-slider')],
+                                     className="pretty_container three columns",
+                ),
+                html.Div([dcc.Graph(id='graph5-with-slider')],
                                      className="pretty_container seven columns",
-                            ),
-                            html.Div([dcc.Graph(id='graph4-with-slider', figure=fig4)],
-                                     className="pretty_container five columns",
-                            ),
-                        ],
-                            id="countGraphContainer",
-                            className="pretty_container",
-                        ),
-                    ],
-                    id="right-column",
-                    className="eight columns",
+                ),
+                html.Div([dcc.Graph(id='graph6-with-slider')],
+                                    className="pretty_container three columns",
                 ),
             ],
             className="row flex-display",
@@ -422,24 +410,17 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     [html.Div([dcc.Graph(id='graph2-with-slider')])],
-                    className="pretty_container five columns",
+                    className="pretty_container six columns",
                 ),
             ],
             className="row flex-display",
         ),
-        html.Div(
-            [
-                html.Div(
-                    [dcc.Graph(id='graph6-with-slider')],
-                    className="pretty_container seven columns",
-                ),
-                html.Div(
-                    [dcc.Graph(id='graph5-with-slider')],
-                    className="pretty_container five columns",
-                ),
-            ],
-            className="row flex-display",
-        ),
+        html.Div([
+            html.Div(
+                [dcc.Graph(id='graph4-with-slider', figure=fig4)
+                ], className="pretty_container twelve columns",
+            ),
+        ],className="row flex-display")
     ],
     id="mainContainer",
     style={"display": "flex", "flex-direction": "column"},
@@ -578,7 +559,7 @@ def update_figure4(selected_year):
             hovertemplate='%{label}'
         ))
 
-    return go.Figure(data=data5)
+    return go.Figure(data=data5, layout = layout_fig5)
 
 @app.callback(
     Output('graph6-with-slider', 'figure'),
@@ -591,16 +572,16 @@ def update_figure5(selected_year):
     CountryRelations_b['Relations'] = (CountryRelations_b['Country_from'] + ' to '+ CountryRelations_b['Country_to'])
     CountryRelations_b.sort_values(['Transfer_fee'], inplace = True)
 
-    data6 = go.Bar(y=CountryRelations_b['Relations'],
-                         x=CountryRelations_b["Transfer_fee"],
-                         orientation='h',
-                         name = '',
-                         text = '<b>Transfer fee:</b> ' +  (CountryRelations_b['Transfer_fee'].round(-5)/1000000).astype(str)+'M'+
-                                '<br><b>Transfers:</b> ' +  CountryRelations_b['Transactions'].astype(str),
-                         hovertemplate = '%{text}'
-                )
+    data6 = go.Table(columnwidth=[5, 3, 2],
+                      header=dict(values=['<b>Trades between<br>Countries.</b> From-To',
+                                          '<b>Transfer</b><br> in MM.€', '<b>Nº</b><br>'],
+                                  align=['center', 'center', 'center']),
+                      cells=dict(values=[CountryRelations_b['Relations'],
+                                         (CountryRelations_b['Transfer_fee'] / 1000000).round(1),
+                                         CountryRelations_b['Transactions']])
+                      )
 
-    return go.Figure(data = data6)
+    return go.Figure(data = data6, layout = layout_fig6)
 
 # Main
 if __name__ == "__main__":
