@@ -44,27 +44,34 @@ filtered_df_2['Avg_TransferFee'] = filtered_df_2['Avg_TransferFee']
 filtered_df = filtered_df_2[(filtered_df_2['Season'] == '2000-2001')]
 
 layout_fig = dict(geo=dict(
-        showframe=False,
+        showframe=True,
         showcoastlines=False,
-        projection_type='equirectangular'
+        landcolor='lightgreen',
+        showocean=True,
+        oceancolor='#e6e6e6',
+        projection = dict(
+            type='natural earth'
+        ),
+        bgcolor = '#e6e6e6',
     ),
-        title=dict(text='Football'),
+        title=dict(text='Global View'),
         grid = dict(columns=1, rows=1),
-        margin = dict(t=40, l=0, r=0, b=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
+        margin = dict(t=30, l=0, r=0, b=0),
+        paper_bgcolor='#e6e6e6',
+        plot_bgcolor='#e6e6e6',
 )
 
 data = [go.Choropleth(
             locationmode='country names',
             locations= filtered_df['Country'],
             z = filtered_df['Avg_TransferFee'],
+            name = '',
             text = '<b>Country:</b> ' + filtered_df['Country'] +
                    '<br><b>Hires:</b> ' + filtered_df['NumHires'].astype(str) +
                    '<br><b>AVG Transfer Fee</b>: €'+ (filtered_df['Avg_TransferFee'].round(-5)/1000000).astype(str)+ 'M'+
                    '<br><b>Total Transfer Fee</b>: €' + (filtered_df['MoneySpent'].round(-5)/1000000).astype(str)+ 'M',
             hovertemplate= '%{text}',
-            colorscale = 'Viridis',
+            colorscale = 'blues',
             marker=go.choropleth.Marker(
                 line=go.choropleth.marker.Line(
                     color='rgb(255,255,255)',
@@ -142,17 +149,19 @@ data2 = [go.Scatter(
         '<b>%{text}</b>' +
         '<br><b>Spending</b>: €%{y}' +
         '<br><b>Earnings</b>: €%{x}' +
-        '<br><b>Sales</b>: %{marker.size:}',
+        '<br><b>Transfers</b>: %{marker.size:}',
         mode='markers',
-        marker=dict(size=Country['NumSignings'],
-                    sizeref=2)
+        marker=dict(size=Country['NumSignings']+Country['NumSales'],
+                    sizeref=0.3)
 )for Country_names, Country in Country_data.items()]
 
-layout_fig2 = dict(title='Total Transfers Per Team Per Season',
+layout_fig2 = dict(title='Total Transfers Per Team',
                    xaxis=dict(title='Total Recived by Sales'),
                    yaxis=dict(title='Total Invested in Hiring'),
                    paper_bgcolor='rgba(0,0,0,0)',
-                   plot_bgcolor='rgba(0,0,0,0)'
+                   plot_bgcolor='rgba(0,0,0,0)',
+                   grid=dict(columns=1, rows=1),
+                   margin=dict(t=30, l=0, r=0, b=0),
                    )
 
 fig2 = go.Figure(data=data2, layout=layout_fig2)
@@ -186,17 +195,18 @@ data3 = go.Sunburst(
     parents=database.parents,
     values=database.transfers,
     branchvalues = 'total',
+    name='Investments',
     marker=dict(
-        cmin = transfers['Transfer_fee'].min(),
-        cmax = transfers['Transfer_fee'].quantile(.999),
+        cmin=transfers['Transfer_fee'].min(),
+        cmax=transfers['Transfer_fee'].quantile(.999),
         colors=database.transferfee,
-        colorscale='OrRd'),
+        colorscale='blues',
+        line=dict(color='darkgrey')),
     hovertemplate='<b>%{label} </b> <br> Transfers: %{value}<br> Transfer fee: €%{color:,}',
     maxdepth=3,
 )
 
-layout_fig3 = dict(#title = 'SUN PLOT',
-
+layout_fig3 = dict(title = 'Player Exploration',
     grid= dict(columns=1, rows=1),
     margin = dict(t=65, l=0, r=0, b=50),
     paper_bgcolor='rgba(0,0,0,0)',
@@ -256,7 +266,9 @@ fig4.update_layout(dict(title = 'Total Transfers by Team per Season',
                        legend= dict(x=-.1, y=1.1),
                        legend_orientation="h"),
                         paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)'
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        grid= dict(columns=1, rows=1),
+                        margin = dict(t=80, l=0, r=0, b=0),
 )
 
 fig4.update_yaxes(title_text="Highest\Lowest Transfer Fee ", secondary_y=True)
@@ -294,11 +306,11 @@ data5 = go.Sankey(
         hovertemplate='%{label}'
     ))
 
-layout_fig5 = dict(
+layout_fig5 = dict(title = 'Relation between Countries',
     grid= dict(columns=1, rows=1),
-    margin = dict(t=100, l=50, r=0, b=0),
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)'
+    margin = dict(t=65, l=50, r=0, b=0),
+    paper_bgcolor= '#e6e6e6',
+    plot_bgcolor='rgba(0,0,0,0)',
 )
 
 fig5 = go.Figure(data=data5, layout = layout_fig5)
@@ -306,14 +318,22 @@ fig5 = go.Figure(data=data5, layout = layout_fig5)
 # SIXTH PLOT
 CountryRelations_b = CountryRelations2.iloc[:20]
 CountryRelations_b['Relations'] = (CountryRelations_b['Country_from'] + ' to '+ CountryRelations_b['Country_to'])
-CountryRelations_b.sort_values(['Transfer_fee'], inplace = True)
+CountryRelations_b['Transfer_fee'] = CountryRelations_b['Transfer_fee'].astype(int)
+CountryRelations_b.sort_values(['Transfer_fee'], inplace = True, ascending = False)
 
-data6 =go.Table(columnwidth = [5,3,2],
+data6 = go.Table(columnwidth = [6,3,1],
                 header=dict(values=['<b>Trades between<br>Countries.</b> From-To',
                                     '<b>Transfer</b><br> in MM.€', '<b>Nº</b><br>'],
-                                           align=['center','center','center']),
-                               cells=dict(values=[CountryRelations_b['Relations'],(CountryRelations_b['Transfer_fee']/1000000).round(1),CountryRelations_b['Transactions'] ])
-                              )
+                                           align=['center','center','center'],
+                                            fill = dict(color = 'midnightblue'),
+                                            font = dict(color = 'white')),
+                               cells=dict(values=[CountryRelations_b['Relations'],
+                                                  (CountryRelations_b['Transfer_fee']/1000000).round(1),
+                                                  CountryRelations_b['Transactions']],
+                                                  line = dict(color = 'black'),
+                                                  fill = dict(color='#e6e6e6'),
+                                                  font = dict(color='black'))
+                )
 
 layout_fig6 = dict(
     grid= dict(columns=1, rows=1),
@@ -328,6 +348,7 @@ fig6 = go.Figure(data = data6, layout = layout_fig6)
 
 app = dash.Dash(__name__)
 server = app.server
+
 # Create app layout
 app.layout = html.Div(
     [
@@ -336,16 +357,19 @@ app.layout = html.Div(
         html.Div(id="output-clientside"),
         html.Div(
             [
+                html.Div([
+                    html.Img(src='assets/image.png')
+                ],style={"margin-left": "115px"}),
                 html.Div(
                     [
                         html.Div(
                             [
                                 html.H3(
                                     "Football Manager",
-                                    style={"margin-bottom": "0px"},
+                                    style={"margin-bottom": "0px","margin-right": "400px"},
                                 ),
                                 html.H5(
-                                    "Transfers Dashboard", style={"margin-top": "0px"}
+                                    "Transfers Dashboard", style={"margin-top": "0px","margin-right": "400px"}
                                 ),
                             ]
                         )
@@ -356,9 +380,6 @@ app.layout = html.Div(
                 html.Div(
                     [
                         html.P("Choose a season:", className="control_label"),
-                        dcc.RadioItems(
-                            id="well_status_selector",
-                        ),
                         dcc.Dropdown(
                             id="year-dropdown",
                             options=[{'label' : '2000-2001', 'value' : '2000-2001' },
@@ -381,7 +402,7 @@ app.layout = html.Div(
                         ],
                         value='2000-2001'
                         ),
-                    ],className="pretty_container four columns",id="cross-filter-options",
+                    ],className="pretty_container three columns",id="cross-filter-options",
                 ),
             ],
             id="header",
@@ -418,7 +439,7 @@ app.layout = html.Div(
         html.Div([
             html.Div(
                 [dcc.Graph(id='graph4-with-slider', figure=fig4)
-                ], className="pretty_container twelve columns",
+                ], className="pretty_container2 twelve columns",
             ),
         ],className="row flex-display")
     ],
@@ -437,12 +458,13 @@ def update_figure1(selected_year):
         locationmode='country names',
         locations=filtered_df['Country'],
         z=filtered_df['Avg_TransferFee'],
+        name='',
         text='<b>Country:</b> ' + filtered_df['Country'] +
              '<br><b>Hires:</b> ' + filtered_df['NumHires'].astype(str) +
              '<br><b>AVG Transfer Fee</b>: €' + (filtered_df['Avg_TransferFee'].round(-5) / 1000000).astype(str) + 'M' +
              '<br><b>Total Transfer Fee</b>: €' + (filtered_df['MoneySpent'].round(-5) / 1000000).astype(str) + 'M',
         hovertemplate='%{text}',
-        colorscale='Viridis',
+        colorscale='blues',
         marker=go.choropleth.Marker(
             line=go.choropleth.marker.Line(
                 color='rgb(255,255,255)',
@@ -474,10 +496,10 @@ def update_figure2(selected_year):
                 '<b>%{text}</b>' +
                 '<br><b>Spending</b>: €%{y}' +
                 '<br><b>Earnings</b>: €%{x}' +
-                '<br><b>Sales</b>: %{marker.size:}',
+                '<br><b>Transfers</b>: %{marker.size:}',
                 mode='markers',
-                marker=dict(size=Country['NumSignings'],
-                            sizeref=0.5)
+                marker=dict(size=Country['NumSignings'] + Country['NumSales'],
+                    sizeref=0.3)
 
         ) for Country_names, Country in Country_data.items()]
 
@@ -520,11 +542,13 @@ def update_figure3(selected_year):
         parents=database.parents,
         values=database.transfers,
         branchvalues='total',
+        name='Investments',
         marker=dict(
             cmin=transfers['Transfer_fee'].min(),
             cmax=transfers['Transfer_fee'].quantile(.999),
             colors=database.transferfee,
-            colorscale='OrRd'),
+            colorscale='blues',
+            line=dict(color='darkgrey')),
         hovertemplate='<b>%{label} </b> <br> Transfers: %{value}<br> Transfer fee: €%{color:,}',
         maxdepth=3
     )
@@ -553,7 +577,7 @@ def update_figure4(selected_year):
             source=CountryRelations2["Country_ind_y"],
             target=CountryRelations2["Country_ind_x"],
             value=CountryRelations2["Transfer_fee"],
-            label='<b>' + CountryRelations2["Country_y"] + '</b>' + ' To ' + '<b>' + CountryRelations[
+            label='<b>' + CountryRelations2["Country_y"] + '</b>' + ' To ' + '<b>' + CountryRelations2[
                 "Country_x"] + '</b>' + '<br>' +
                   '<b>Transfers:</b> ' + CountryRelations2["Transactions"].astype(str),
             hovertemplate='%{label}'
@@ -570,15 +594,21 @@ def update_figure5(selected_year):
 
     CountryRelations_b = CountryRelations2.iloc[:20]
     CountryRelations_b['Relations'] = (CountryRelations_b['Country_from'] + ' to '+ CountryRelations_b['Country_to'])
-    CountryRelations_b.sort_values(['Transfer_fee'], inplace = True)
+    CountryRelations_b['Transfer_fee'] = CountryRelations_b['Transfer_fee'].astype(int)
+    CountryRelations_b.sort_values(['Transfer_fee'], inplace=True, ascending=False)
 
-    data6 = go.Table(columnwidth=[5, 3, 2],
-                      header=dict(values=['<b>Trades between<br>Countries.</b> From-To',
-                                          '<b>Transfer</b><br> in MM.€', '<b>Nº</b><br>'],
-                                  align=['center', 'center', 'center']),
-                      cells=dict(values=[CountryRelations_b['Relations'],
-                                         (CountryRelations_b['Transfer_fee'] / 1000000).round(1),
-                                         CountryRelations_b['Transactions']])
+    data6 = go.Table(columnwidth=[6, 3, 1],
+                     header=dict(values=['<b>Trades between<br>Countries.</b> From-To',
+                                         '<b>Transfer</b><br> in MM.€', '<b>Nº</b><br>'],
+                                 align=['center', 'center', 'center'],
+                                 fill=dict(color='midnightblue'),
+                                 font=dict(color='white')),
+                     cells=dict(values=[CountryRelations_b['Relations'],
+                                        (CountryRelations_b['Transfer_fee'] / 1000000).round(1),
+                                        CountryRelations_b['Transactions']],
+                                line=dict(color='black'),
+                                fill=dict(color='#e6e6e6'),
+                                font=dict(color='black'))
                       )
 
     return go.Figure(data = data6, layout = layout_fig6)
