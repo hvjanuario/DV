@@ -306,7 +306,7 @@ data5 = go.Sankey(
         hovertemplate='%{label}'
     ))
 
-layout_fig5 = dict(title = 'Top 50 Relation between Countries',
+layout_fig5 = dict(title = 'Top 50 Relations between Countries',
     grid= dict(columns=1, rows=1),
     margin = dict(t=65, l=50, r=0, b=0),
     paper_bgcolor= '#e6e6e6',
