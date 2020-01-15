@@ -4,7 +4,7 @@
 }
 
 body {
-  background-color: #f2f2f2;
+  background-color: darkgrey;
   margin: 5%;
 }
 
@@ -14,13 +14,13 @@ body {
 
 .column,
 .columns {
-  margin-left: 0.5%;
+  margin-left: 5%;
 }
 
 .pretty_container {
-  border-radius: 5px;
+  border-radius: 15px;
   background-color: #f9f9f9;
-  margin: 10px;
+  margin: 5px;
   padding: 15px;
   position: relative;
   box-shadow: 2px 2px 2px lightgrey;
@@ -79,16 +79,6 @@ body {
   align-items: center;
 }
 
-#learn-more-button {
-  text-align: center;
-  height: 100%;
-  padding: 0 20px;
-  text-transform: none;
-  font-size: 15px;
-  float: right;
-  margin-right: 10px;
-  margin-top: 30px;
-}
 #title {
   text-align: center;
 }
@@ -129,7 +119,7 @@ body {
 
 #tripleContainer {
   display: flex;
-  flex: 3;
+  flex: 1;
 }
 
 #mainContainer {
