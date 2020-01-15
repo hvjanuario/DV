@@ -19,11 +19,18 @@ body {
 
 .pretty_container {
   border-radius: 15px;
-  background-color: #f9f9f9;
+  background-color: #e6e6e6;
   margin: 5px;
   padding: 15px;
   position: relative;
-  box-shadow: 2px 2px 2px lightgrey;
+  box-shadow: 2px 2px 2px white;
+}
+
+.pretty_container2 {
+  border-radius: 15px;
+  background-color: #e6e6e6;
+  margin: 5px;
+  box-shadow: 2px 2px 2px white;
 }
 
 .bare_container {
@@ -45,10 +52,6 @@ body {
   width: calc(100%-40px);
 }
 
-.rc-slider {
-  margin-left: 0px;
-  padding-left: 0px;
-}
 
 .flex-display {
   display: flex;
